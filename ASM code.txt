@@ -1,0 +1,147 @@
+;------------------------------------------
+; void iprint(Integer number)
+; Integer printing function (itoa)
+; This function takes an integer as input and converts it to a string representation. It does this by repeatedly dividing the integer by 10 and pushing the remainder (which is the last digit of the integer) onto the stack. Then, it pops the digits off the stack one at a time and converts them to their ASCII representation before printing them using the sprint function. Finally, it restores the original values of the registers and returns.
+iprint:
+; preserve eax,ecx,edx,esi on the stack to be restored after function runs
+    push    eax             
+    push    ecx             
+    push    edx             
+    push    esi             
+    
+    mov     ecx, 0          ; counter of how many bytes we need to print in the end
+ 
+divideLoop:
+    inc     ecx             ; count each byte to print - number of characters
+    mov     edx, 0          ; empty edx
+    mov     esi, 10         ; mov 10 into esi
+    idiv    esi             ; divide eax by esi
+    add     edx, 48         ; convert edx to it's ascii representation - edx holds the remainder after a divide instruction
+    push    edx             ; push edx (string representation of an intger) onto the stack
+    cmp     eax, 0          ; can the integer be divided anymore?
+    jnz     divideLoop      ; jump if not zero to the label divideLoop
+ 
+printLoop:
+    dec     ecx             ; count down each byte that we put on the stack
+    mov     eax, esp        ; mov the stack pointer into eax for printing
+    call    sprint          ; call our string print function
+    pop     eax             ; remove last character from the stack to move esp forward
+    cmp     ecx, 0          ; have we printed all bytes we pushed onto the stack?
+    jnz     printLoop       ; jump is not zero to the label printLoop
+ 
+    pop     esi             ; restore esi from the value we pushed onto the stack at the start
+    pop     edx             ; restore edx from the value we pushed onto the stack at the start
+    pop     ecx             ; restore ecx from the value we pushed onto the stack at the start
+    pop     eax             ; restore eax from the value we pushed onto the stack at the start
+    ret
+
+ 
+;------------------------------------------
+; int slen(String message)
+; String length calculation function
+slen:
+    push    ebx
+    mov     ebx, eax
+ 
+nextchar:
+    cmp     byte [eax], 0
+    jz      finished
+    inc     eax
+    jmp     nextchar
+ 
+finished:
+    sub     eax, ebx
+    pop     ebx
+    ret
+ 
+ 
+;------------------------------------------
+; void sprint(String message)
+; String printing function
+; The sprint function is a custom implementation of the sprintf function that formats a string using a format string and a set of arguments, and writes the resulting string to the standard output stream using the write system call. It also calls the slen function to calculate the length of the formatted string. The function saves and restores the values of several registers to ensure they are not affected by the function call. The formatted string is passed to the write system call using the file descriptor for the output stream (stdout) and the length of the string as arguments. Finally, the function returns control to the calling function with the original values of the registers restored.
+sprint:
+    push    edx
+    push    ecx
+    push    ebx
+    push    eax
+    call    slen
+ 
+    mov     edx, eax
+    pop     eax
+ 
+;  System Call for write
+    mov     ecx, eax
+    mov     ebx, 1
+    mov     eax, 4
+    int     80h
+ 
+    pop     ebx
+    pop     ecx
+    pop     edx
+    ret
+ 
+ 
+ 
+ 
+;------------------------------------------
+; void exit()
+; Exit program and restore resources
+quit:
+    mov     ebx, 0
+    mov     eax, 1
+    int     80h
+    ret
+;------------------------------------------
+
+SECTION .data
+msg1 db 'Please enter the 2 digits you would like to add ', 0h
+msg2 db 'The sum of the two numbers is: ', 0h
+
+SECTION .bss
+input1: RESB 4
+input2: RESB 4
+
+; Variables names to use for system calls later
+    write equ 4
+    read equ 3
+    stdout equ 1
+    stdin equ 0
+
+SECTION .text
+global _start
+
+_start:
+; Print message asking for first number
+	mov eax, msg1
+	call sprint
+	
+; Read first number
+	mov eax, read 
+	mov ebx, stdin
+	mov edx, 1 ;Length of UserMSG, in our case just 1
+	mov ecx, input1
+	int 80h
+	
+; Read second number
+	mov eax, read 
+	mov ebx, stdin
+	mov edx, 1
+	mov ecx, input2
+	int 80h
+
+	
+; Print the final message
+	mov eax, msg2
+	call sprint
+	
+; Print the integer as an string
+	mov ebx, [input1]
+	add ebx, -48
+	add ebx, [input2]
+	add ebx, -48
+	mov eax, ebx
+	call iprint
+
+
+	
+	call quit
